@@ -2,25 +2,52 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Ranking do Jogo</title>
+    <title>Corrida com Desafio e Ranking</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
-        <h1>Jogo com Ranking</h1>
-        <div class="input-area">
-            <input type="text" id="nome-jogador" placeholder="Seu nome">
-            <input type="number" id="pontuacao-jogador" placeholder="Sua pontuação">
-            <button id="salvar-pontuacao">Salvar Pontuação</button>
-        </div>
 
-        <div class="ranking-area">
-            <h2>🏆 Ranking Geral 🏆</h2>
-            <ul id="lista-ranking">
-                <li>Carregando...</li>
-            </ul>
+    <div id="tela-inicial" class="tela ativa">
+        <h1>Corrida com Desafio</h1>
+        <p>Digite seu nome para começar:</p>
+        <input type="text" id="nome-jogador-input" placeholder="Seu nome aqui">
+        <button id="botao-iniciar">Começar a Corrida!</button>
+    </div>
+
+    <div id="tela-jogo" class="tela">
+        <div id="hud">
+            <span>Tempo: <span id="tempo">0</span>s</span>
+            <span>Pontuação: <span id="pontuacao">0</span></span>
+        </div>
+        <div id="area-jogo">
+            <div id="jogador">
+                <span id="nome-jogador-display"></span>
+            </div>
+            <div id="objetivo"></div>
         </div>
     </div>
+    
+    <div id="modal-desafio" class="modal">
+        <div class="modal-conteudo">
+            <h3 id="pergunta"></h3>
+            <button class="resposta" data-index="0"></button>
+            <button class="resposta" data-index="1"></button>
+            <button class="resposta" data-index="2"></button>
+        </div>
+    </div>
+
+    <div id="tela-final" class="tela">
+        <h1>Corrida Finalizada!</h1>
+        <p>Sua pontuação final foi: <strong id="pontuacao-final">0</strong></p>
+        <button id="salvar-pontuacao">Salvar no Ranking</button>
+        <hr>
+        <h2>🏆 Ranking Geral 🏆</h2>
+        <ul id="lista-ranking">
+            <li>Carregando ranking...</li>
+        </ul>
+        <button id="botao-jogar-novamente">Jogar Novamente</button>
+    </div>
+
     <script src="script.js"></script>
 </body>
 </html>
