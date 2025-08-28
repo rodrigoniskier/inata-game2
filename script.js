@@ -1,36 +1,194 @@
 // --- DOCUMENTAÇÃO ---
-// Este script gerencia o ranking do jogo.
-// 1. Configura a conexão com o banco de dados (JSONBin.io).
-// 2. carregarRanking(): Busca os dados atuais do ranking na internet.
-// 3. atualizarTelaRanking(): Exibe os dados do ranking na página.
-// 4. salvarPontuacao(): Adiciona uma nova pontuação, ordena e envia a lista atualizada para o banco de dados.
+// Este script controla o fluxo completo do jogo, desde o início até o salvamento no ranking.
+// 1. Gerencia a troca entre as telas (inicial, jogo, final).
+// 2. Controla a movimentação do jogador.
+// 3. Ativa um desafio (pergunta) quando o jogador atinge um ponto.
+// 4. Calcula a pontuação baseada em tempo e acerto do desafio.
+// 5. Comunica-se com o JSONBin.io para carregar e salvar o ranking.
 
-// --- ETAPA 1: CONFIGURAÇÃO ---
+// --- ETAPA 1: CONFIGURAÇÃO E VARIÁVEIS GLOBAIS ---
+
 // SUBSTITUA COM SUAS INFORMAÇÕES DO JSONBIN.IO
 const BIN_ID = '68b0e74bae596e708fda76c6'; 
-const API_KEY = '$2a$10$YxVa67ymPOGpsYta2mXakOPG1rbu605uVJemRqFmJR.8nqkVlhlLS'; // Geralmente começa com $2a$10$
-
+const API_KEY = '$2a$10$YxVa67ymPOGpsYta2mXakOPG1rbu605uVJemRqFmJR.8nqkVlhlLS';
 const URL_BASE = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
 
-// Selecionando os elementos do HTML
+// Elementos das Telas
+const telaInicial = document.getElementById('tela-inicial');
+const telaJogo = document.getElementById('tela-jogo');
+const telaFinal = document.getElementById('tela-final');
+
+// Elementos do Jogo
+const jogadorEl = document.getElementById('jogador');
+const nomeJogadorDisplay = document.getElementById('nome-jogador-display');
+const objetivoEl = document.getElementById('objetivo');
+const pontuacaoEl = document.getElementById('pontuacao');
+const tempoEl = document.getElementById('tempo');
+
+// Elementos do Desafio
+const modalDesafio = document.getElementById('modal-desafio');
+const perguntaEl = document.getElementById('pergunta');
+const respostasBotoes = document.querySelectorAll('.resposta');
+
+// Elementos de Interação
+const nomeJogadorInput = document.getElementById('nome-jogador-input');
+const botaoIniciar = document.getElementById('botao-iniciar');
+const botaoSalvar = document.getElementById('salvar-pontuacao');
+const botaoJogarNovamente = document.getElementById('botao-jogar-novamente');
 const listaRankingEl = document.getElementById('lista-ranking');
-const nomeJogadorEl = document.getElementById('nome-jogador');
-const pontuacaoJogadorEl = document.getElementById('pontuacao-jogador');
-const salvarPontuacaoBtn = document.getElementById('salvar-pontuacao');
+const pontuacaoFinalEl = document.getElementById('pontuacao-final');
 
+// Variáveis de Estado do Jogo
+let nomeJogador = '';
+let pontuacao = 0;
+let posicaoX = 10, posicaoY = 340; // Posição inicial do jogador
+let jogoAtivo = false;
+let desafioFoiAtivado = false;
+let timerInterval;
+let startTime;
 
-// --- ETAPA 2: FUNÇÕES DE COMUNICAÇÃO COM O RANKING ---
+// Conteúdo do Desafio
+const desafio = {
+    pergunta: "Qual tag HTML é usada para criar um link?",
+    respostas: ["<a>", "<h1>", "<img>"],
+    correta: 0 // Índice da resposta correta
+};
 
-// Função para CARREGAR os dados do ranking
-async function carregarRanking() {
-    listaRankingEl.innerHTML = '<li>Carregando...</li>';
-    const response = await fetch(`${URL_BASE}/latest`); // '/latest' pega a versão mais recente
-    const data = await response.json();
-    atualizarTelaRanking(data.record.ranking);
-    return data.record.ranking; // Retorna a lista para ser usada por outras funções
+// --- ETAPA 2: FUNÇÕES DO FLUXO DO JOGO ---
+
+function iniciarJogo() {
+    nomeJogador = nomeJogadorInput.value;
+    if (nomeJogador.trim() === '') {
+        alert('Por favor, digite um nome!');
+        return;
+    }
+    nomeJogadorDisplay.textContent = nomeJogador;
+
+    // Resetar estado do jogo
+    pontuacao = 0;
+    desafioFoiAtivado = false;
+    posicaoX = 10;
+    posicaoY = 340;
+    atualizarPosicaoJogador();
+    atualizarHUD();
+    
+    mudarTela('tela-jogo');
+    jogoAtivo = true;
+    iniciarTimer();
 }
 
-// Função para SALVAR os dados do ranking
+function finalizarJogo() {
+    jogoAtivo = false;
+    pararTimer();
+    
+    // Cálculo da pontuação final (ex: bônus de tempo)
+    const tempoFinal = Math.floor((Date.now() - startTime) / 1000);
+    const bonusTempo = Math.max(0, 100 - tempoFinal); // Ganha mais pontos se for rápido
+    pontuacao += bonusTempo;
+
+    pontuacaoFinalEl.textContent = pontuacao;
+    mudarTela('tela-final');
+    carregarRanking();
+}
+
+function resetarJogo() {
+    nomeJogadorInput.value = '';
+    mudarTela('tela-inicial');
+}
+
+function mudarTela(idTelaAtiva) {
+    document.querySelectorAll('.tela').forEach(tela => tela.classList.remove('ativa'));
+    document.getElementById(idTelaAtiva).classList.add('ativa');
+}
+
+// --- ETAPA 3: MECÂNICAS DO JOGO (MOVIMENTO, DESAFIO, TIMER) ---
+
+function atualizarPosicaoJogador() {
+    jogadorEl.style.left = posicaoX + 'px';
+    jogadorEl.style.top = posicaoY + 'px';
+}
+
+function atualizarHUD() {
+    pontuacaoEl.textContent = pontuacao;
+    const tempoDecorrido = Math.floor((Date.now() - startTime) / 1000);
+    tempoEl.textContent = tempoDecorrido;
+}
+
+function iniciarTimer() {
+    startTime = Date.now();
+    timerInterval = setInterval(atualizarHUD, 1000);
+}
+
+function pararTimer() {
+    clearInterval(timerInterval);
+}
+
+function verificarCondicoes() {
+    // 1. Verificar se chegou no objetivo
+    if (posicaoX + 50 > objetivoEl.offsetLeft) {
+        finalizarJogo();
+    }
+
+    // 2. Verificar se ativou o desafio (ex: na metade do caminho)
+    if (!desafioFoiAtivado && posicaoX > 400) {
+        desafioFoiAtivado = true;
+        jogoAtivo = false; // Pausa o jogo
+        pararTimer();
+        mostrarDesafio();
+    }
+}
+
+function mostrarDesafio() {
+    perguntaEl.textContent = desafio.pergunta;
+    respostasBotoes.forEach((botao, index) => {
+        botao.textContent = desafio.respostas[index];
+    });
+    modalDesafio.style.display = 'block';
+}
+
+function responderDesafio(indexResposta) {
+    if (indexResposta === desafio.correta) {
+        pontuacao += 150; // Bônus por acertar
+        alert("Resposta Correta! +150 pontos!");
+    } else {
+        alert("Resposta Incorreta!");
+    }
+    modalDesafio.style.display = 'none';
+    jogoAtivo = true; // Despausa o jogo
+    iniciarTimer(); // Reinicia o timer de onde parou
+}
+
+document.addEventListener('keydown', (e) => {
+    if (!jogoAtivo) return;
+
+    const velocidade = 15;
+    if (e.key === 'ArrowRight') posicaoX += velocidade;
+    if (e.key === 'ArrowLeft') posicaoX -= velocidade;
+    
+    // Limites para não sair da tela
+    if (posicaoX < 0) posicaoX = 0;
+    if (posicaoX > 750) posicaoX = 750;
+
+    atualizarPosicaoJogador();
+    verificarCondicoes();
+});
+
+
+// --- ETAPA 4: LÓGICA DO RANKING (Igual ao exemplo anterior) ---
+
+async function carregarRanking() {
+    listaRankingEl.innerHTML = '<li>Carregando...</li>';
+    try {
+        const response = await fetch(`${URL_BASE}/latest`);
+        const data = await response.json();
+        atualizarTelaRanking(data.record.ranking);
+        return data.record.ranking;
+    } catch (e) {
+        listaRankingEl.innerHTML = '<li>Não foi possível carregar o ranking.</li>';
+        return [];
+    }
+}
+
 async function salvarRanking(dadosDoRanking) {
     try {
         await fetch(URL_BASE, {
@@ -39,66 +197,43 @@ async function salvarRanking(dadosDoRanking) {
                 'Content-Type': 'application/json',
                 'X-Master-Key': API_KEY
             },
-            body: JSON.stringify({ ranking: dadosDoRanking }) // Envia o objeto completo
+            body: JSON.stringify({ ranking: dadosDoRanking })
         });
-        // Após salvar, recarrega o ranking para garantir que está tudo atualizado
+        botaoSalvar.textContent = "Salvo com Sucesso!";
+        botaoSalvar.disabled = true;
         carregarRanking();
-    } catch (error) {
-        console.error("Erro ao salvar o ranking:", error);
-        alert("Não foi possível salvar sua pontuação. Tente novamente.");
+    } catch (e) {
+        alert("Erro ao salvar a pontuação.");
     }
 }
 
-// --- ETAPA 3: FUNÇÕES DE INTERAÇÃO COM A TELA ---
-
-// Função para exibir o ranking na tela
 function atualizarTelaRanking(ranking) {
-    listaRankingEl.innerHTML = ''; // Limpa a lista antes de adicionar os novos itens
-
+    listaRankingEl.innerHTML = '';
     if (ranking.length === 0) {
-        listaRankingEl.innerHTML = '<li>Nenhuma pontuação registrada ainda. Seja o primeiro!</li>';
+        listaRankingEl.innerHTML = '<li>Seja o primeiro a pontuar!</li>';
         return;
     }
-
-    // Ordena o ranking por pontuação (do maior para o menor)
     ranking.sort((a, b) => b.pontuacao - a.pontuacao);
-
-    ranking.forEach((jogador, index) => {
+    ranking.slice(0, 10).forEach((jogador, index) => { // Mostra só os 10 primeiros
         const item = document.createElement('li');
-        item.textContent = `${index + 1}. ${jogador.nome} - ${jogador.pontuacao} pontos`;
+        item.textContent = `#${index + 1} ${jogador.nome} - ${jogador.pontuacao} pontos`;
         listaRankingEl.appendChild(item);
     });
 }
 
-// --- ETAPA 4: EVENTOS (AÇÕES DO JOGADOR) ---
-
-// Adiciona o evento de clique ao botão de salvar
-salvarPontuacaoBtn.addEventListener('click', async () => {
-    const nome = nomeJogadorEl.value;
-    const pontuacao = parseInt(pontuacaoJogadorEl.value, 10);
-
-    if (!nome || isNaN(pontuacao)) {
-        alert('Por favor, preencha seu nome e uma pontuação válida.');
-        return;
-    }
-
-    alert('Enviando sua pontuação...');
-
-    // 1. Carrega o ranking atual
+// --- ETAPA 5: ADICIONAR OS EVENTOS AOS BOTÕES ---
+botaoIniciar.addEventListener('click', iniciarJogo);
+botaoJogarNovamente.addEventListener('click', resetarJogo);
+respostasBotoes.forEach(botao => {
+    botao.addEventListener('click', () => responderDesafio(parseInt(botao.dataset.index)));
+});
+botaoSalvar.addEventListener('click', async () => {
+    botaoSalvar.textContent = "Salvando...";
+    botaoSalvar.disabled = true;
     const rankingAtual = await carregarRanking();
-    
-    // 2. Adiciona a nova pontuação
-    rankingAtual.push({ nome, pontuacao });
-
-    // 3. Salva a lista atualizada
+    rankingAtual.push({ nome: nomeJogador, pontuacao });
     await salvarRanking(rankingAtual);
-
-    // Limpa os campos de input
-    nomeJogadorEl.value = '';
-    pontuacaoJogadorEl.value = '';
 });
 
-
 // --- INICIALIZAÇÃO ---
-// Carrega o ranking assim que a página é aberta
-carregarRanking();
+mudarTela('tela-inicial');
